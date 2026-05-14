@@ -1,0 +1,6 @@
+{
+  "ollama_base_url": "http://127.0.0.1:11434",
+  "llm_mudel": "qwen3:30b-instruct",
+  "embedding_mudel": "Qwen/Qwen3-Embedding-8B",
+  "csv_tee": "finantsrakendus/andmed/OPUS_4.7_SYNT_ANDMED/synth_2024_2026.csv"
+}

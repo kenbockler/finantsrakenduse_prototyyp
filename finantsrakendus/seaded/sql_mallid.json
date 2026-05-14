@@ -1,0 +1,55 @@
+{
+  "mallid": [
+    {
+      "id": "suurimad_kulutused",
+      "kirjeldus": "Kasutaja küsib oma suurimaid või väiksemaid üksikuid kulutusi (top N tehingut summa järgi). Parameeter 'suund' valib: 'DESC' = suurimad esimesena, 'ASC' = väiksemad esimesena. Märksõnad: suurim, kallim, kõige rohkem, väikseim, odavaim, kõige vähem, top.",
+      "sql": "SELECT tehingu_id, kuupaev, vastaspool_nimi, summa, selgitus FROM tehingud WHERE kuupaev BETWEEN '{alates_kuupaev}' AND '{kuni_kuupaev}' ORDER BY summa {suund} LIMIT {limit}",
+      "parameetrid": {
+        "alates_kuupaev": {"tüüp": "kuupaev", "vaikimisi": "1900-01-01", "min": "1900-01-01", "max": "2099-12-31"},
+        "kuni_kuupaev": {"tüüp": "kuupaev", "vaikimisi": "2099-12-31", "min": "1900-01-01", "max": "2099-12-31"},
+        "suund": {"tüüp": "valik", "vaikimisi": "DESC", "lubatud": ["DESC", "ASC"]},
+        "limit": {"tüüp": "int", "vaikimisi": 10, "min": 1, "max": 50}
+      }
+    },
+    {
+      "id": "korduvad_maksed",
+      "kirjeldus": "Kasutaja küsib oma korduvaid makseid - sama vastaspoolt esinevad vähemalt kaks korda antud ajavahemikus. Iga vastaspoole kohta kuvatakse kordusarv, summa min/max/keskmine/kokku ja ajavahemik esimesest viimase tehinguni. Märksõnad: korduvad, regulaarsed, püsimaksed, tellimused, kuumaksed, sama kaupmees.",
+      "sql": "SELECT vastaspool_nimi, count(*) AS arv, min(summa) AS min_summa, max(summa) AS max_summa, round(avg(summa), 2) AS keskmine, round(sum(summa), 2) AS summa_kokku, CONCAT(min(kuupaev), ' .. ', max(kuupaev)) AS ajavahemik FROM tehingud WHERE kuupaev BETWEEN '{alates_kuupaev}' AND '{kuni_kuupaev}' GROUP BY vastaspool_nimi HAVING count(*) >= 2 ORDER BY arv DESC",
+      "parameetrid": {
+        "alates_kuupaev": {"tüüp": "kuupaev", "vaikimisi": "1900-01-01", "min": "1900-01-01", "max": "2099-12-31"},
+        "kuni_kuupaev": {"tüüp": "kuupaev", "vaikimisi": "2099-12-31", "min": "1900-01-01", "max": "2099-12-31"}
+      }
+    },
+    {
+      "id": "topeltmaksed",
+      "kirjeldus": "Kasutaja küsib võimalikke topeltmakseid - sama päev, sama vastaspool ja sama summa esinevad mitu korda. Märksõnad: topelt, dubleeritud, kaks korda, sama päev, sama summa, kahekordne.",
+      "sql": "SELECT kuupaev, vastaspool_nimi, summa, count(*) AS arv FROM tehingud WHERE kuupaev BETWEEN '{alates_kuupaev}' AND '{kuni_kuupaev}' GROUP BY kuupaev, vastaspool_nimi, summa HAVING count(*) >= 2 ORDER BY arv DESC, kuupaev DESC, summa DESC",
+      "parameetrid": {
+        "alates_kuupaev": {"tüüp": "kuupaev", "vaikimisi": "1900-01-01", "min": "1900-01-01", "max": "2099-12-31"},
+        "kuni_kuupaev": {"tüüp": "kuupaev", "vaikimisi": "2099-12-31", "min": "1900-01-01", "max": "2099-12-31"}
+      }
+    },
+    {
+      "id": "sagedased_vaikesed_maksed",
+      "kirjeldus": "Kasutaja küsib vastaspooli, kellele teeb sageli väikesi makseid (summa kuni etteantud lävi, esinemissagedus üle min_kordusi). Iga vastaspoole kohta kuvatakse esinemissagedus, kogusumma ja keskmine summa. Märksõnad: väike summa, sageli, mikromaksed, palju väikseid, kohvik, kiosk.",
+      "sql": "SELECT vastaspool_nimi, count(*) AS arv, round(sum(summa), 2) AS summa_kokku, round(avg(summa), 2) AS keskmine FROM tehingud WHERE summa <= {summa_lavi} AND kuupaev BETWEEN '{alates_kuupaev}' AND '{kuni_kuupaev}' GROUP BY vastaspool_nimi HAVING count(*) >= {min_kordusi} ORDER BY arv DESC, summa_kokku DESC",
+      "parameetrid": {
+        "alates_kuupaev": {"tüüp": "kuupaev", "vaikimisi": "1900-01-01", "min": "1900-01-01", "max": "2099-12-31"},
+        "kuni_kuupaev": {"tüüp": "kuupaev", "vaikimisi": "2099-12-31", "min": "1900-01-01", "max": "2099-12-31"},
+        "summa_lavi": {"tüüp": "float", "vaikimisi": 15.0, "min": 0.01, "max": 9999999.99},
+        "min_kordusi": {"tüüp": "int", "vaikimisi": 5, "min": 2, "max": 100}
+      }
+    },
+    {
+      "id": "pusimakse_hinnatous",
+      "kirjeldus": "Kasutaja küsib, kas mõni tema püsimakse on hinda tõstnud - vastaspooled, kelle kõige väiksem ja kõige suurem summa erinevad rohkem kui muutus_lavi_pct protsenti, kelle juures on vähemalt min_kordusi tehingut, vähemalt kaks korda täpselt odavaim hind (püsikulu madalam tase) ja vähemalt kaks korda täpselt kalleim hind (püsikulu kõrgem tase), ning kelle tehingud on suhteliselt ühtlased (mitte juhuslikud erinevate suurustega ostud). Märksõnad: hinnatõus, kallinemine, kallimaks, püsimakse muutus, hind kasvas, tõstis hinda.",
+      "sql": "SELECT vastaspool_nimi, count(*) AS arv, min_s AS endine, max_s AS uus, round((max_s - min_s) / min_s * 100, 1) AS muutus_pct, CONCAT(min(kuupaev), ' .. ', max(kuupaev)) AS ajavahemik FROM (SELECT vastaspool_nimi, kuupaev, summa, min(summa) OVER (PARTITION BY vastaspool_nimi) AS min_s, max(summa) OVER (PARTITION BY vastaspool_nimi) AS max_s FROM tehingud WHERE kuupaev BETWEEN '{alates_kuupaev}' AND '{kuni_kuupaev}') t GROUP BY vastaspool_nimi, min_s, max_s HAVING count(*) >= {min_kordusi} AND max_s > min_s * (1 + {muutus_lavi_pct} / 100.0) AND max_s <= min_s * 1.8 AND stddev_samp(summa) / avg(summa) <= 0.4 AND count(CASE WHEN summa = min_s THEN 1 END) >= 2 AND count(CASE WHEN summa = max_s THEN 1 END) >= 2 ORDER BY muutus_pct DESC",
+      "parameetrid": {
+        "alates_kuupaev": {"tüüp": "kuupaev", "vaikimisi": "1900-01-01", "min": "1900-01-01", "max": "2099-12-31"},
+        "kuni_kuupaev": {"tüüp": "kuupaev", "vaikimisi": "2099-12-31", "min": "1900-01-01", "max": "2099-12-31"},
+        "min_kordusi": {"tüüp": "int", "vaikimisi": 3, "min": 2, "max": 50},
+        "muutus_lavi_pct": {"tüüp": "float", "vaikimisi": 5.0, "min": 1.0, "max": 2000.0}
+      }
+    }
+  ]
+}

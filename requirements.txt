@@ -1,0 +1,10 @@
+--extra-index-url https://download.pytorch.org/whl/cu130
+
+duckdb==1.5.2
+chromadb==1.5.9
+torch==2.11.0+cu130
+torchvision==0.26.0+cu130
+transformers==5.8.0
+sentence-transformers==5.4.1
+streamlit>=1.51.0
+pandas>=2.2.0

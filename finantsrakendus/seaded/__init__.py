@@ -1,0 +1,2 @@
+"""Rakenduse seaded ja konfiguratsioon."""
+
